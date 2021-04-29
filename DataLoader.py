@@ -106,7 +106,6 @@ class DataLoader:
             matrix = matrix.reshape(row_num, col_num)
         return matrix
 
-
     def read_in_images(self, root_path: str, dir_name: str, file_name: str, file_type: str, shape=None, transpose=None):
         file_path_list = self.get_file_names(root_path, dir_name, file_name, file_type)
         self.dataset_dict[file_name] = [self.read_fig(path, shape=shape, transpose=transpose) for path in
@@ -116,6 +115,17 @@ class DataLoader:
         file_path_list = self.get_file_names(root_path, dir_name, file_name, file_type)
         self.dataset_dict[file_name] = [self.read_file(path, shape=shape, transpose=transpose) for path in
                                         file_path_list]
+
+    def gen_artificial_matrices(self):
+        self.dataset_dict['artificial'] = {}
+        for p in range(1, 9):
+            ratio = p * 0.1
+            U_star = test_loader.gen_gaussian_matrix(50, 5, seed=5)
+            V_star = test_loader.gen_gaussian_matrix(50, 5, seed=6)
+            S_star = test_loader.gen_gaussian_matrix(50, 50, sparse=True, ratio=ratio, seed=7)
+            L_star = U_star @ V_star.T
+            self.dataset_dict['artificial'][ratio] = {'U_star': U_star, 'V_star': V_star,
+                                                      'S_star': S_star, 'L_star': L_star}
 
 
 if __name__ == '__main__':
@@ -134,4 +144,3 @@ if __name__ == '__main__':
     print('U_star:\n', U_star)
     print('V_star:\n', V_star)
     print('S_star:\n', S_star)
-
