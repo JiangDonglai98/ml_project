@@ -49,8 +49,8 @@ class SubGradient:
             # V_k_T = V_k.T - miu_V * SubGradient.sub_grad_V(self.X, U_k, V_k)
             # U_k_T = U_k.T - miu * SubGradient.sub_grad_U(self.X, U_k, V_k)
             # V_k_T = V_k.T - miu * SubGradient.sub_grad_V(self.X, U_k, V_k)
-            U_k_T = U_k.T - miu * SubGradient.sub_grad_U(V_k, self.X, U_k.T)
-            V_k_T = V_k.T - miu * SubGradient.sub_grad_V(U_k, self.X, V_k.T)
+            U_k_T = U_k.T - miu / (t+1) * SubGradient.sub_grad_U(V_k, self.X, U_k.T)
+            V_k_T = V_k.T - miu / (t+1) * SubGradient.sub_grad_V(U_k, self.X, V_k.T)
             U_k = U_k_T.T
             V_k = V_k_T.T
             # miu_U = (np.linalg.norm(U_k - self.U_list[-1])) / np.linalg.norm(subgrad_U(V_k, X, U_k.T))
@@ -58,7 +58,6 @@ class SubGradient:
             # miu_U = c /
             # miu_V = c /
             t += 1
-            miu = miu / t
         self.U_list.append(U_k)
         self.V_list.append(V_k)
 

@@ -1,6 +1,5 @@
 # %%
 import numpy as np
-import pandas as pd
 import os
 from Algorithms import AIRLSGradient, SubGradient
 from DataLoader import DataLoader
@@ -89,7 +88,7 @@ def total_error_list_dict(p_dict: dict, init_U: np.ndarray, init_V: np.ndarray, 
 init_U = task_loader.gen_gaussian_matrix(50, 5, seed=116020097)
 init_V = task_loader.gen_gaussian_matrix(50, 5, seed=22041082)
 task1_matrix_dict = task_loader.dataset_dict['artificial']
-opts_task1 = {'sigma': 0.0001, 'iter_num': 1000, 'miu': 0.001}
+opts_task1 = {'sigma': 0.0001, 'iter_num': 1000, 'miu': 0.1}
 task1_total_error_list_dict_AIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, AIRLSGradient, opts_task1)
 task1_total_error_list_dict_subgradient = total_error_list_dict(task1_matrix_dict, init_U, init_V, SubGradient,
                                                                 opts_task1)
@@ -146,7 +145,7 @@ def task2_different_r_strategy(flatten_face_matrix: np.ndarray, grad_class, opts
 
 
 flatten_face_matrix = task_loader.flatten_img_list(task_loader.dataset_dict['yale'])
-opts_task2 = {'sigma': 0.0001, 'iter_num': 500, 'miu': 0.001}
+opts_task2 = {'sigma': 0.0001, 'iter_num': 100, 'miu': 0.01}
 init_U = task_loader.gen_gaussian_matrix(192 * 168, 20, seed=55)
 init_V = task_loader.gen_gaussian_matrix(64, 20, seed=66)
 task2_AIRLS = AIRLSGradient(flatten_face_matrix, init_U, init_V, opts_task2)
@@ -156,12 +155,14 @@ task2_AIRLS = AIRLSGradient(flatten_face_matrix, init_U, init_V, opts_task2)
 # task2_AIRLS_faces = task2_AIRLS.U_list[-1] @ task2_AIRLS.V_list[-1].T
 # task2_AIRLS_restore_face_list = task_loader.restore_img(task2_AIRLS_faces, 192, 168)
 # gen_compare_face_plot(task2_AIRLS_restore_face_list, task_loader.dataset_dict['yale'], 'AIRLS', r)
-# task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=10)
-# task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=5)
-# task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=3)
-# task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=2)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=10)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=5)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=3)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=2)
 
 # subgradient plot
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=10)
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=5)
 task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=3)
 task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=2)
 
@@ -191,12 +192,23 @@ def task3_different_r_strategy(flatten_video_matrix: np.ndarray, grad_class, opt
 
 
 flatten_video_matrix = task_loader.flatten_img_list(task_loader.dataset_dict['escalator'][0])
-opts_task3 = {'sigma': 0.0001, 'iter_num': 50}
-task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+opts_task3 = {'sigma': 0.0001, 'iter_num': 300, 'miu': 0.01}
+# AIRLS video
+# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+#                            r=2)
+# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+#                            r=3)
+# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+#                            r=5)
+# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+#                            r=10)
+
+# subgradient video
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
                            r=2)
-task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
                            r=3)
-task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
                            r=5)
-task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
                            r=10)
