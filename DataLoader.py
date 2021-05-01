@@ -56,6 +56,14 @@ class DataLoader:
         plt.show()
 
     @staticmethod
+    def flatten_img_list(img_list: list) -> np.ndarray:
+        return np.column_stack([img.flatten() for img in img_list])
+
+    @staticmethod
+    def restore_img(total_img_matrix: np.ndarray,  width: int, height: int) -> list:
+        return [img.reshape((width, height)) for img in total_img_matrix.T]
+
+    @staticmethod
     def read_file(path: str, shape: tuple = None, transpose: tuple = None, delimiter=",") -> np.ndarray:
         name = path.split('\\')[-1]
         with open(path) as f:
@@ -70,6 +78,10 @@ class DataLoader:
         print('Resize to shape:', file.shape)
         print("-" * 10)
         return file
+
+    @staticmethod
+    def combine_array(array_list, axis) -> np.ndarray:
+        return np.concatenate(array_list, axis=axis)
 
     @staticmethod
     def array_to_img(img: np.ndarray, out_path: str, name: str, out_form: str = '.jpg'):
@@ -97,10 +109,10 @@ class DataLoader:
                             sparse: bool = False, ratio: float = 0.0, seed: int = 5) -> np.ndarray:
         np.random.seed(seed)
         if not sparse:
-            matrix = np.random.normal(loc=mean, scale=std, size=(row_num, col_num))
+            matrix = np.float32(np.random.normal(loc=mean, scale=std, size=(row_num, col_num)))
         else:
             total_num = int(row_num * col_num * (1 - ratio))
-            matrix = np.random.normal(loc=mean, scale=std, size=row_num * col_num)
+            matrix = np.float32(np.random.normal(loc=mean, scale=std, size=row_num * col_num))
             indices = np.random.choice(np.arange(row_num * col_num), replace=False, size=total_num)
             matrix[indices] = 0
             matrix = matrix.reshape(row_num, col_num)
@@ -147,3 +159,6 @@ if __name__ == '__main__':
     print('V_star:\n', V_star)
     print('S_star:\n', S_star)
     test_loader.gen_artificial_matrices()
+    flatten_face_matrices = test_loader.flatten_img_list(test_loader.dataset_dict['yale'])
+    restore_face_list = test_loader.restore_img(flatten_face_matrices, 192, 168)
+    test_loader.show_img(restore_face_list[10])
