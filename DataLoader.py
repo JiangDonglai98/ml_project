@@ -36,7 +36,7 @@ class DataLoader:
     @staticmethod
     def read_fig(path: str, shape: tuple = None, transpose: tuple = None) -> np.ndarray:
         im = plt.imread(path)
-        name = path.split('\\')[-1]
+        name = path.split(os.sep)[-1]
         print('-' * 5 + name + '-' * 5)
         print("shape:", im.shape)
         print("type:", type(im))

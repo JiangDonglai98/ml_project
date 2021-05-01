@@ -1,14 +1,8 @@
 import numpy as np
-from abc import abstractmethod, ABCMeta, ABC
 
 
-class Gradient(metaclass=ABCMeta):
-    @abstractmethod
-    def gradient(self):
-        pass
 
-
-class SubGradient(Gradient, ABC):
+class SubGradient:
     def __init__(self, X: np.ndarray, init_U: np.ndarray, init_V: np.ndarray, opts: dict):
         self.X = X
         self.init_U = init_U
@@ -17,28 +11,62 @@ class SubGradient(Gradient, ABC):
         self.U_list = []
         self.V_list = []
 
-    @staticmethod
-    def sub_grad_U(X: np.ndarray, U: np.ndarray, V: np.ndarray) -> np.ndarray:
-        """
-        :param X:
-        :param U:
-        :param V:
-        :return:
-        """
-        return - V.T @ np.sign(X - U @ V.T)
+    # @staticmethod
+    # def sub_grad_U(X: np.ndarray, U: np.ndarray, V: np.ndarray) -> np.ndarray:
+    #     result = X.T - V @ U.T
+    #     result = np.sign(result)
+    #     return - V.T @ result
+    #
+    # @staticmethod
+    # def sub_grad_V(X: np.ndarray, U: np.ndarray, V: np.ndarray) -> np.ndarray:
+    #     result = X - U @ V.T
+    #     result = np.sign(result)
+    #     return - U.T @ result
 
     @staticmethod
-    def sub_grad_V(X: np.ndarray, U: np.ndarray, V: np.ndarray) -> np.ndarray:
-        pass
+    def sub_grad_U(X, y, theta):
+        result = y.T - X @ theta
+        result = np.sign(result)
+        return np.float32(- X.T @ result)
+
+    @staticmethod
+    def sub_grad_V(X, y, theta):
+        result = y - X @ theta
+        result = np.sign(result)
+        return np.float32(- X.T @ result)
 
     def gradient(self):
-        pass
+        t = 0
+        U_k = self.init_U
+        V_k = self.init_V
+        # miu_U = self.opts['miu']
+        # miu_V = self.opts['miu']
+        miu = self.opts['miu']
+        while t < self.opts['iter_num']:
+            self.U_list.append(U_k)
+            self.V_list.append(V_k)
+            # U_k_T = U_k.T - miu_U * SubGradient.sub_grad_U(self.X, U_k, V_k)
+            # V_k_T = V_k.T - miu_V * SubGradient.sub_grad_V(self.X, U_k, V_k)
+            # U_k_T = U_k.T - miu * SubGradient.sub_grad_U(self.X, U_k, V_k)
+            # V_k_T = V_k.T - miu * SubGradient.sub_grad_V(self.X, U_k, V_k)
+            U_k_T = U_k.T - miu * SubGradient.sub_grad_U(V_k, self.X, U_k.T)
+            V_k_T = V_k.T - miu * SubGradient.sub_grad_V(U_k, self.X, V_k.T)
+            U_k = U_k_T.T
+            V_k = V_k_T.T
+            # miu_U = (np.linalg.norm(U_k - self.U_list[-1])) / np.linalg.norm(subgrad_U(V_k, X, U_k.T))
+            # miu_V = (np.linalg.norm(V_k - self.V_list[-1])) / np.linalg.norm(subgrad_V(U_k, X, V_k.T))
+            # miu_U = c /
+            # miu_V = c /
+            t += 1
+            miu = miu / t
+        self.U_list.append(U_k)
+        self.V_list.append(V_k)
 
     def __str__(self):
         return 'subgradient'
 
 
-class AIRLSGradient(Gradient, ABC):
+class AIRLSGradient:
     def __init__(self, X: np.ndarray, init_U: np.ndarray, init_V: np.ndarray, opts: dict):
         self.X = X
         self.init_U = init_U
@@ -81,7 +109,7 @@ class AIRLSGradient(Gradient, ABC):
 
     def gradient(self):
         W_VT_init = np.float32(np.eye(self.init_U.shape[0]))  # diag d
-        W_U_init = np.float32(np.eye(self.init_V.shape[0]))   # diag n
+        W_U_init = np.float32(np.eye(self.init_V.shape[0]))  # diag n
         VT_k, W_t_V = AIRLSGradient.IRLS_VT(self.X, self.init_U, W_VT_init, self.opts['sigma'])
         U_k, W_t_U = AIRLSGradient.IRLS_U(self.X, self.init_V.T, W_U_init, self.opts['sigma'])
         # print("I am here")
