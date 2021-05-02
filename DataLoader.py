@@ -20,6 +20,8 @@ class DataLoader:
     4.read common files to the numpy.ndarray format.
     5.Transform the numpy.ndarray format files to the figure (default .jpg format).
     6.Transform the numpy.ndarray format files to the video (default .avi format) to run.
+    7.Flatten image list into huge numpy.array matrix.
+    8.Restore numpy.array matrix into list of single image.
     """
 
     def __init__(self):

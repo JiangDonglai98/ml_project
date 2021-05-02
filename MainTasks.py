@@ -4,14 +4,83 @@ import os
 from Algorithms import AIRLSGradient, SubGradient
 from DataLoader import DataLoader
 import matplotlib.pyplot as plt
+import time
+import pandas as pd
 
 plt.style.use('ggplot')
-
 root = r'G:\Master\master_course\Machine_Learning\course_project\Final_project_package'
 task_loader = DataLoader()
 task_loader.read_in_images(root, 'Data' + os.sep + 'Yale-B02', 'yale', 'pgm')
 task_loader.read_in_files(root, r'Data', 'escalator', 'csv', (160, 130, 200), (2, 1, 0))
 task_loader.gen_artificial_matrices()
+
+total_task_parm_compare_dict = {'task': [], 'algorithm': [], 'function': [], 'time': [], 'r': [],
+                                'iter_num': [], 'sigma': [], 'miu': []}
+
+
+# %%
+def logging(task_name: str):
+    def timer(function):
+        """
+        a time decorator
+        :param function: function you wan to count on time
+        :return: result of target function
+        """
+
+        def wrapper(*args, **kwargs):
+            time_start = time.time()
+            res = function(*args, **kwargs)
+            names = function.__code__.co_varnames
+            algo_name = ''
+            try:
+                par_dict = args[names.index('opts')]
+            except:
+                par_dict = None
+            try:
+                r = args[names.index('r')]
+            except:
+                r = None
+            for i in args:
+                if i is AIRLSGradient:
+                    algo_name = AIRLSGradient.name()
+                if i is SubGradient:
+                    algo_name = SubGradient.name()
+            cost_time = time.time() - time_start
+            print('-' * 50)
+            print("任务:{}, 算法:{},【{}】运行时间：【{}】秒".format(task_name, algo_name, function.__name__, cost_time))
+            path = os.path.join(root, 'Current_results')
+            filepath = os.path.join(path, 'project_log.log')
+            with open(filepath, mode='a') as f:
+                f.write('-' * 50 + '\n')
+                f.write("任务:{}, 算法:{},【{}】运行时间：【{}】秒\n".format(task_name, algo_name, function.__name__, cost_time))
+                total_task_parm_compare_dict['task'].append(task_name)
+                total_task_parm_compare_dict['algorithm'].append(algo_name)
+                total_task_parm_compare_dict['function'].append(function.__name__)
+                total_task_parm_compare_dict['time'].append(cost_time)
+                total_task_parm_compare_dict['r'].append(r)
+                print("参数:")
+                print(f"r: {r}")
+                f.write("参数:\n")
+                f.write(f"r: {r}\t")
+                for name, value in par_dict.items():
+                    print(f"{name}: {value}\t")
+                    f.write(f"{name}: {value}\t")
+                    if name == 'iter_num':
+                        total_task_parm_compare_dict['iter_num'].append(value)
+                if par_dict.get('sigma', -1) != -1:
+                    total_task_parm_compare_dict['sigma'].append(value)
+                else:
+                    total_task_parm_compare_dict['sigma'].append(None)
+                if par_dict.get('miu', -1) != -1:
+                    total_task_parm_compare_dict['miu'].append(value)
+                else:
+                    total_task_parm_compare_dict['miu'].append(None)
+                f.write('\n')
+            return res
+
+        return wrapper
+
+    return timer
 
 
 # %%
@@ -68,7 +137,8 @@ def cal_error_list(U_k_list: np.ndarray, V_k_list: np.ndarray, L_star: np.ndarra
     return error_list
 
 
-def total_error_list_dict(p_dict: dict, init_U: np.ndarray, init_V: np.ndarray, grad_class, opts) -> dict:
+@logging('task1')
+def total_error_list_dict(p_dict: dict, init_U: np.ndarray, init_V: np.ndarray, grad_class, opts: dict) -> dict:
     """
     :param p_dict           all p and its U_star, V_star, S_star, L_star, X_star
     :param init_U:          same init U for all
@@ -88,10 +158,12 @@ def total_error_list_dict(p_dict: dict, init_U: np.ndarray, init_V: np.ndarray, 
 init_U = task_loader.gen_gaussian_matrix(50, 5, seed=116020097)
 init_V = task_loader.gen_gaussian_matrix(50, 5, seed=22041082)
 task1_matrix_dict = task_loader.dataset_dict['artificial']
-opts_task1 = {'sigma': 0.0001, 'iter_num': 1000, 'miu': 0.1}
-task1_total_error_list_dict_AIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, AIRLSGradient, opts_task1)
+opts_task1_AIRLS = {'sigma': 0.0001, 'iter_num': 1000}
+opts_task1_sub = {'iter_num': 1000, 'miu': 0.1}
+task1_total_error_list_dict_AIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, AIRLSGradient,
+                                                          opts_task1_AIRLS)
 task1_total_error_list_dict_subgradient = total_error_list_dict(task1_matrix_dict, init_U, init_V, SubGradient,
-                                                                opts_task1)
+                                                                opts_task1_sub)
 # parameter p = 0:3 algorithm error list plot
 # AIRLS plot
 draw_error_norm(task1_total_error_list_dict_AIRLS['0.3'], os.path.join(root, 'Current_results'), 'task1_a_AIRLS')
@@ -126,6 +198,7 @@ def gen_compare_face_plot(restore_face_list: list, true_face_list: list, grad: s
         count += 1
 
 
+@logging('task2')
 def task2_different_r_strategy(flatten_face_matrix: np.ndarray, grad_class, opts: dict, true_faces_list: list,
                                r: int, d1: int = 192, d2: int = 168, n: int = 64):
     if d1 != 1 and d2 != 1:
@@ -145,26 +218,26 @@ def task2_different_r_strategy(flatten_face_matrix: np.ndarray, grad_class, opts
 
 
 flatten_face_matrix = task_loader.flatten_img_list(task_loader.dataset_dict['yale'])
-opts_task2 = {'sigma': 0.0001, 'iter_num': 100, 'miu': 0.01}
+opts_task2_sub = {'iter_num': 200, 'miu': 0.01}
+opts_task2_AIRLS = {'sigma': 0.0001, 'iter_num': 50}
 init_U = task_loader.gen_gaussian_matrix(192 * 168, 20, seed=55)
 init_V = task_loader.gen_gaussian_matrix(64, 20, seed=66)
-task2_AIRLS = AIRLSGradient(flatten_face_matrix, init_U, init_V, opts_task2)
-# task2_AIRLS.gradient()
 
 # AIRLS plot
-# task2_AIRLS_faces = task2_AIRLS.U_list[-1] @ task2_AIRLS.V_list[-1].T
-# task2_AIRLS_restore_face_list = task_loader.restore_img(task2_AIRLS_faces, 192, 168)
-# gen_compare_face_plot(task2_AIRLS_restore_face_list, task_loader.dataset_dict['yale'], 'AIRLS', r)
-task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=10)
-task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=5)
-task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=3)
-task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2, task_loader.dataset_dict['yale'], r=2)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 30)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 20)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 10)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 5)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 3)
+task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 2)
 
 # subgradient plot
-task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=10)
-task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=5)
-task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=3)
-task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2, task_loader.dataset_dict['yale'], r=2)
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2_sub, task_loader.dataset_dict['yale'], 30)
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2_sub, task_loader.dataset_dict['yale'], 20)
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2_sub, task_loader.dataset_dict['yale'], 10)
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2_sub, task_loader.dataset_dict['yale'], 5)
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2_sub, task_loader.dataset_dict['yale'], 3)
+task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2_sub, task_loader.dataset_dict['yale'], 2)
 
 
 # %%
@@ -180,6 +253,7 @@ def gen_compare_video(restore_video_tensor: np.ndarray, true_video_tensor: np.nd
     task_loader.array_to_video(np.array(total_video), 10, d2 * 3, d1, root, name)
 
 
+@logging('task3')
 def task3_different_r_strategy(flatten_video_matrix: np.ndarray, grad_class, opts: dict, true_video_tensor: np.ndarray,
                                r: int, d1: int = 130, d2: int = 160, n: int = 200):
     init_U = task_loader.gen_gaussian_matrix(d1 * d2, r, seed=55)
@@ -192,23 +266,37 @@ def task3_different_r_strategy(flatten_video_matrix: np.ndarray, grad_class, opt
 
 
 flatten_video_matrix = task_loader.flatten_img_list(task_loader.dataset_dict['escalator'][0])
-opts_task3 = {'sigma': 0.0001, 'iter_num': 300, 'miu': 0.01}
+opts_task3_sub = {'iter_num': 300, 'miu': 0.01}
+opts_task3_AIRLS = {'sigma': 0.0001, 'iter_num': 100}
 # AIRLS video
-# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-#                            r=2)
-# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-#                            r=3)
-# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-#                            r=5)
-# task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-#                            r=10)
+task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3_AIRLS,
+                           task_loader.dataset_dict['escalator'][0],
+                           2)
+task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3_AIRLS,
+                           task_loader.dataset_dict['escalator'][0],
+                           3)
+task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3_AIRLS,
+                           task_loader.dataset_dict['escalator'][0],
+                           5)
+task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3_AIRLS,
+                           task_loader.dataset_dict['escalator'][0],
+                           10)
+task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3_AIRLS,
+                           task_loader.dataset_dict['escalator'][0],
+                           20)
 
 # subgradient video
-task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-                           r=2)
-task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-                           r=3)
-task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-                           r=5)
-task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3, task_loader.dataset_dict['escalator'][0],
-                           r=10)
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3_sub, task_loader.dataset_dict['escalator'][0],
+                           2)
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3_sub, task_loader.dataset_dict['escalator'][0],
+                           3)
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3_sub, task_loader.dataset_dict['escalator'][0],
+                           5)
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3_sub, task_loader.dataset_dict['escalator'][0],
+                           10)
+task3_different_r_strategy(flatten_video_matrix, SubGradient, opts_task3_sub, task_loader.dataset_dict['escalator'][0],
+                           20)
+
+# %%
+parms_df = pd.DataFrame(total_task_parm_compare_dict)
+parms_df.to_csv(os.path.join(root, os.path.join('Current_results', 'project_function_parameters.csv')))
