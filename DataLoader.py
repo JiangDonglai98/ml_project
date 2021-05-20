@@ -1,6 +1,9 @@
+# utf-8
+# author: Donglai Jiang
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.image as p_img
 import os
 import glob
 import cv2
@@ -52,7 +55,7 @@ class DataLoader:
 
     @staticmethod
     def show_img(img: np.ndarray, with_axes: bool = False):
-        plt.imshow(img, cmap='gray')
+        plt.imshow(img, cmap='gray')  # , cmap='gray'
         if not with_axes:
             plt.axis('off')
         plt.show()
@@ -89,21 +92,22 @@ class DataLoader:
     def array_to_img(img: np.ndarray, out_path: str, name: str, out_form: str = '.jpg'):
         shape = img.shape
         print(f'=> target image frame size: {shape[0]}, {shape[1]}')
+        # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         cv2.imwrite(os.path.join(out_path, name + out_form), img)
+        # cv2.imwrite(os.path.join(out_path, name + out_form), gray)
+        # p_img.imsave(os.path.join(out_path, name + out_form), img, cmap='gray')
 
     @staticmethod
     def array_to_video(video_file: np.ndarray, fps: int, width: int, height: int, out_path: str,
                        name: str, codec: str = 'DIVX', out_form: str = '.avi'):
         fourcc = cv2.VideoWriter_fourcc(*codec)
-        out = cv2.VideoWriter(os.path.join(out_path, name + out_form), fourcc, fps, (width, height))  # , False
+        out = cv2.VideoWriter(os.path.join(out_path, name + out_form), fourcc, fps, (width, height), isColor=False)  # , isColor=False
         print(f'=> target video frame size: {width}, {height}')
         for img in video_file:
-            # DataLoader.show_img(img)
-            cv_img = img.astype('uint8')
-            gray_3c = cv2.merge([cv_img, cv_img, cv_img])
-            # print(cv_img)
-            # print(gray_3c.shape)
-            out.write(gray_3c)
+            cv_img = img.astype('int8')  # 'int8'  'float32'
+            # gray_3c = cv2.merge([cv_img, cv_img, cv_img])
+            # out.write(gray_3c)
+            out.write(cv_img)
         out.release()
 
     @staticmethod

@@ -1,7 +1,10 @@
+# utf-8
+# author: Donglai Jiang
+
 # %%
 import numpy as np
 import os
-from Algorithms import AIRLSGradient, SubGradient
+from Algorithms import OriginAIRLSGradient, AIRLSGradient, SubGradient, KAIRLSGradient, ElementAIRLSGradient, L1AIRLSGradient, EqualAIRLSGradient
 from DataLoader import DataLoader
 import matplotlib.pyplot as plt
 import time
@@ -154,17 +157,32 @@ def total_error_list_dict(p_dict: dict, init_U: np.ndarray, init_V: np.ndarray, 
         result[str(p / 10)] = cal_error_list(temp_grad.U_list, temp_grad.V_list, matrix_dict['L_star'])
     return result
 
-
+# %%
 init_U = task_loader.gen_gaussian_matrix(50, 5, seed=116020097)
 init_V = task_loader.gen_gaussian_matrix(50, 5, seed=22041082)
 task1_matrix_dict = task_loader.dataset_dict['artificial']
-opts_task1_AIRLS = {'sigma': 0.0001, 'iter_num': 1000}
+opts_task1_AIRLS = {'sigma': 1E-10, 'iter_num': 1000}
 opts_task1_sub = {'iter_num': 1000, 'miu': 0.1}
+# %%
+task1_total_error_list_dict_OriginAIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, OriginAIRLSGradient,
+                                                          opts_task1_AIRLS)
 task1_total_error_list_dict_AIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, AIRLSGradient,
                                                           opts_task1_AIRLS)
 task1_total_error_list_dict_subgradient = total_error_list_dict(task1_matrix_dict, init_U, init_V, SubGradient,
                                                                 opts_task1_sub)
+task1_total_error_list_dict_KAIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, KAIRLSGradient,
+                                                          opts_task1_AIRLS)
+task1_total_error_list_dict_ElementAIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, ElementAIRLSGradient,
+                                                          opts_task1_AIRLS)
+task1_total_error_list_dict_L1AIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, L1AIRLSGradient,
+                                                          opts_task1_AIRLS)
+task1_total_error_list_dict_EqualAIRLS = total_error_list_dict(task1_matrix_dict, init_U, init_V, EqualAIRLSGradient,
+                                                          opts_task1_AIRLS)
+
 # parameter p = 0:3 algorithm error list plot
+# OriginAIRLS plot
+draw_error_norm(task1_total_error_list_dict_OriginAIRLS['0.3'], os.path.join(root, 'Current_results'), 'task1_a_OriginAIRLS')
+
 # AIRLS plot
 draw_error_norm(task1_total_error_list_dict_AIRLS['0.3'], os.path.join(root, 'Current_results'), 'task1_a_AIRLS')
 
@@ -172,7 +190,24 @@ draw_error_norm(task1_total_error_list_dict_AIRLS['0.3'], os.path.join(root, 'Cu
 draw_error_norm(task1_total_error_list_dict_subgradient['0.3'], os.path.join(root, 'Current_results'),
                 'task1_a_subgradient')
 
+# KAIRLS plot
+draw_error_norm(task1_total_error_list_dict_KAIRLS['0.3'], os.path.join(root, 'Current_results'), 'task1_a_KAIRLS')
+
+# ElementAIRLS plot
+draw_error_norm(task1_total_error_list_dict_ElementAIRLS['0.3'], os.path.join(root, 'Current_results'), 'task1_a_ElementAIRLS')
+
+# L1AIRLS plot
+draw_error_norm(task1_total_error_list_dict_L1AIRLS['0.3'], os.path.join(root, 'Current_results'), 'task1_a_L1AIRLS')
+
+# EqualAIRLS plot
+draw_error_norm(task1_total_error_list_dict_EqualAIRLS['0.3'], os.path.join(root, 'Current_results'), 'task1_a_EqualAIRLS')
+
+# %%
 # p in {0.1; 0.2; 0.3; ...... ; 0.8} end error plot
+# OriginAIRLS plot
+OriginAIRLS_end_error_list = [(p, error[-1]) for p, error in task1_total_error_list_dict_OriginAIRLS.items()]
+compare_p_error_norm(OriginAIRLS_end_error_list, os.path.join(root, 'Current_results'), 'task1_b_OriginAIRLS')
+
 # AIRLS plot
 AIRLS_end_error_list = [(p, error[-1]) for p, error in task1_total_error_list_dict_AIRLS.items()]
 compare_p_error_norm(AIRLS_end_error_list, os.path.join(root, 'Current_results'), 'task1_b_AIRLS')
@@ -181,6 +216,17 @@ compare_p_error_norm(AIRLS_end_error_list, os.path.join(root, 'Current_results')
 subgradient_end_error_list = [(p, error[-1]) for p, error in task1_total_error_list_dict_subgradient.items()]
 compare_p_error_norm(subgradient_end_error_list, os.path.join(root, 'Current_results'), 'task1_b_subgradient')
 
+# KAIRLS plot
+KAIRLS_end_error_list = [(p, error[-1]) for p, error in task1_total_error_list_dict_KAIRLS.items()]
+compare_p_error_norm(KAIRLS_end_error_list, os.path.join(root, 'Current_results'), 'task1_b_KAIRLS')
+
+# ElementAIRLS plot
+ElementAIRLS_end_error_list = [(p, error[-1]) for p, error in task1_total_error_list_dict_ElementAIRLS.items()]
+compare_p_error_norm(ElementAIRLS_end_error_list, os.path.join(root, 'Current_results'), 'task1_b_ElementAIRLS')
+
+# EqualAIRLS plot
+EqualAIRLS_end_error_list = [(p, error[-1]) for p, error in task1_total_error_list_dict_EqualAIRLS.items()]
+compare_p_error_norm(EqualAIRLS_end_error_list, os.path.join(root, 'Current_results'), 'task1_b_EqualAIRLS')
 
 # %%
 # task2
@@ -223,6 +269,7 @@ opts_task2_AIRLS = {'sigma': 0.0001, 'iter_num': 50}
 init_U = task_loader.gen_gaussian_matrix(192 * 168, 20, seed=55)
 init_V = task_loader.gen_gaussian_matrix(64, 20, seed=66)
 
+# %%
 # AIRLS plot
 task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 30)
 task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 20)
@@ -230,6 +277,7 @@ task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS,
 task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 5)
 task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 3)
 task2_different_r_strategy(flatten_face_matrix, AIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 2)
+task2_different_r_strategy(flatten_face_matrix, EqualAIRLSGradient, opts_task2_AIRLS, task_loader.dataset_dict['yale'], 2)
 
 # subgradient plot
 task2_different_r_strategy(flatten_face_matrix, SubGradient, opts_task2_sub, task_loader.dataset_dict['yale'], 30)
@@ -268,6 +316,7 @@ def task3_different_r_strategy(flatten_video_matrix: np.ndarray, grad_class, opt
 flatten_video_matrix = task_loader.flatten_img_list(task_loader.dataset_dict['escalator'][0])
 opts_task3_sub = {'iter_num': 300, 'miu': 0.01}
 opts_task3_AIRLS = {'sigma': 0.0001, 'iter_num': 100}
+# %%
 # AIRLS video
 task3_different_r_strategy(flatten_video_matrix, AIRLSGradient, opts_task3_AIRLS,
                            task_loader.dataset_dict['escalator'][0],

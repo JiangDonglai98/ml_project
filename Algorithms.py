@@ -84,7 +84,6 @@ class AIRLSGradient:
         self.V_list = []
 
     @staticmethod
-    # @jit(nopython=True)
     def IRLS_VT(Y: np.ndarray, X: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
         beta = np.float32(np.linalg.inv(X.T @ W @ X) @ X.T @ W @ Y)
         # diags = np.sqrt(np.linalg.norm(X, axis=1) + np.linalg.norm(beta.T, axis=1))
@@ -101,7 +100,6 @@ class AIRLSGradient:
         return beta, W_t
 
     @staticmethod
-    # @jit(nopython=True)
     def IRLS_U(Y: np.ndarray, beta: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
         X = np.float32(Y @ W @ beta.T @ np.linalg.inv(beta @ W @ beta.T))
         # diags = np.sqrt(np.linalg.norm(X, axis=1) + np.linalg.norm(beta.T, axis=1))
@@ -134,3 +132,206 @@ class AIRLSGradient:
 
     def __str__(self):
         return 'AIRLS'
+
+
+class OriginAIRLSGradient(AIRLSGradient):
+    @staticmethod
+    def IRLS(Y: np.ndarray, X: np.ndarray, sigma: float, iter_num: int = 2, tol: float = 10E-4) -> np.ndarray:
+        n, p = X.shape
+        W = np.eye(n)
+        beta = np.linalg.inv(X.T @ W @ X) @ X.T @ W @ Y
+        delta = np.array([sigma] * n).reshape(1, n)
+        for iter in range(iter_num):
+            beta_last = beta
+            W = (1.0 / np.maximum(delta, abs(Y - X.dot(beta)).T))[0]
+            W = np.diag(W)
+            beta = np.linalg.inv(X.T @ W @ X) @ X.T @ W @ Y
+            error = sum(abs(beta - beta_last))
+            if error < tol:
+                return beta
+        return beta
+
+    def gradient(self):
+        d, n = self.X.shape
+        r = self.init_U.shape[1]
+        U = self.init_U.copy()
+        V = self.init_V.copy()
+        for i in range(self.opts['iter_num']):
+
+            for j in range(n):
+                y = self.X[:, j].reshape(d, 1)
+                theta = OriginAIRLSGradient.IRLS(y, U, self.opts['sigma'])
+                V[j] = theta.T
+
+            for k in range(d):
+                y = self.X[k].T.reshape(n, 1)
+                theta = OriginAIRLSGradient.IRLS(y, V, self.opts['sigma'])
+                U[k] = theta.T.reshape(1, r)
+            self.U_list.append(U.copy())
+            self.V_list.append(V.copy())
+
+    def __str__(self):
+        return 'OriginAIRLS'
+
+
+class EqualAIRLSGradient(AIRLSGradient):
+    @staticmethod
+    def matrix_to_tensor(first_dim: int, M: np.ndarray) -> np.ndarray:
+        expanded = np.zeros((first_dim,) + (M.shape[1], M.shape[1]), dtype=M.dtype)
+        diag = np.arange(M.shape[1])
+        expanded[:, diag, diag] = M
+        return expanded
+
+    @staticmethod
+    def IRLS_VT(Y: np.ndarray, X: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
+        tensor_W = EqualAIRLSGradient.matrix_to_tensor(Y.shape[1], W)
+        beta = np.float32(np.einsum('ijk,ki->ij', np.linalg.inv(np.einsum('ij,kjl->kil', X.T, tensor_W) @ X) @ X.T @ tensor_W, Y)).T
+
+        temp_W = np.float32(np.abs(Y - X @ beta))
+
+        W_t = np.float32(1 / np.maximum(sigma, temp_W)).T
+        return beta, W_t
+
+    @staticmethod
+    def IRLS_U(Y: np.ndarray, beta: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
+        tensor_W = EqualAIRLSGradient.matrix_to_tensor(Y.shape[0], W)
+        X = np.float32(np.einsum('ij,ijk->ik', Y, tensor_W @ beta.T @ np.linalg.inv(np.einsum('ij,kjl->kil', beta, tensor_W) @ beta.T)))
+
+        temp_W = np.float32(np.abs(Y - X @ beta))
+
+        W_t = np.float32(1 / np.maximum(sigma, temp_W))
+        return X, W_t
+
+    def gradient(self):
+        W_VT_init = np.float32(np.ones((self.X.shape[1], self.X.shape[0])))  # diag d
+        W_U_init = np.float32(np.ones((self.X.shape[0], self.X.shape[1])))  # diag n
+        VT_k, W_t_V = EqualAIRLSGradient.IRLS_VT(self.X, self.init_U, W_VT_init, self.opts['sigma'])
+        U_k, W_t_U = EqualAIRLSGradient.IRLS_U(self.X, self.init_V.T, W_U_init, self.opts['sigma'])
+        # print("I am here")
+        self.U_list.append(U_k)
+        self.V_list.append(VT_k.T)
+        for i in range(self.opts['iter_num']):
+            # print(i)
+            VT_k, W_t_V = EqualAIRLSGradient.IRLS_VT(self.X, U_k, W_t_V, self.opts['sigma'])
+            U_k, W_t_U = EqualAIRLSGradient.IRLS_U(self.X, VT_k, W_t_U, self.opts['sigma'])
+            self.U_list.append(U_k)
+            self.V_list.append(VT_k.T)
+
+    def __str__(self):
+        return 'EqualAIRLS'
+
+class L1AIRLSGradient(AIRLSGradient):
+    """
+    use the l1 replace mean
+    """
+
+    @staticmethod
+    def IRLS_VT(Y: np.ndarray, X: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
+        beta = np.float32(np.linalg.inv(X.T @ W @ X) @ X.T @ W @ Y)
+
+        temp_W = np.float32(np.abs(Y - X @ beta))
+
+        mean = np.max(temp_W, axis=1)
+        W_t = np.float32(np.diag(1 / np.maximum(sigma, mean)))
+        return beta, W_t
+
+    @staticmethod
+    def IRLS_U(Y: np.ndarray, beta: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
+        X = np.float32(Y @ W @ beta.T @ np.linalg.inv(beta @ W @ beta.T))
+        temp_W = np.float32(np.abs(Y - X @ beta))
+
+        mean = np.max(temp_W, axis=0)
+        W_t = np.float32(np.diag(1 / np.maximum(sigma, mean)))
+        return X, W_t
+
+    def gradient(self):
+        W_VT_init = np.float32(np.eye(self.init_U.shape[0]))  # diag d
+        W_U_init = np.float32(np.eye(self.init_V.shape[0]))  # diag n
+        VT_k, W_t_V = L1AIRLSGradient.IRLS_VT(self.X, self.init_U, W_VT_init, self.opts['sigma'])
+        U_k, W_t_U = L1AIRLSGradient.IRLS_U(self.X, self.init_V.T, W_U_init, self.opts['sigma'])
+        # print("I am here")
+        self.U_list.append(U_k)
+        self.V_list.append(VT_k.T)
+        for i in range(self.opts['iter_num']):
+            # print(i)
+            VT_k, W_t_V = L1AIRLSGradient.IRLS_VT(self.X, U_k, W_t_V, self.opts['sigma'])
+            U_k, W_t_U = L1AIRLSGradient.IRLS_U(self.X, VT_k, W_t_U, self.opts['sigma'])
+            self.U_list.append(U_k)
+            self.V_list.append(VT_k.T)
+
+
+class KAIRLSGradient(AIRLSGradient):
+    """
+    use diminishing k of Weight W
+    """
+
+    def gradient(self):
+        t = 1
+        W_VT_init = np.float32(np.eye(self.init_U.shape[0]))  # diag d
+        W_U_init = np.float32(np.eye(self.init_V.shape[0]))  # diag n
+        VT_k, W_t_V = KAIRLSGradient.IRLS_VT(self.X, self.init_U, W_VT_init, self.opts['sigma'])
+        U_k, W_t_U = KAIRLSGradient.IRLS_U(self.X, self.init_V.T, W_U_init, self.opts['sigma'])
+        self.U_list.append(U_k)
+        self.V_list.append(VT_k.T)
+        for i in range(self.opts['iter_num']):
+            VT_k, W_t_V = KAIRLSGradient.IRLS_VT(self.X, U_k, W_t_V, self.opts['sigma'])
+            U_k, W_t_U = KAIRLSGradient.IRLS_U(self.X, VT_k, W_t_U, self.opts['sigma'])
+            W_t_V = W_t_V / t
+            W_t_U = W_t_U / t
+            self.U_list.append(U_k)
+            self.V_list.append(VT_k.T)
+            t += 1
+
+    def __str__(self):
+        return 'KAIRLS'
+
+
+class ElementAIRLSGradient(AIRLSGradient):
+    @staticmethod
+    def swallow(X: np.ndarray, length: int) -> np.ndarray:
+        result = np.zeros(length)
+        X_len = len(X)
+        if X_len <= length:
+            result[:X_len] = X
+        else:
+            result = X[:length]
+        return result
+
+    @staticmethod
+    def IRLS_VT(Y: np.ndarray, X: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
+        beta = np.float32(np.linalg.inv(X.T @ W @ X) @ X.T @ W @ Y)
+        length = len(beta.T)
+        dxd = ElementAIRLSGradient.swallow(np.linalg.norm(X, axis=1), length)
+        nxn = ElementAIRLSGradient.swallow(np.linalg.norm(beta.T, axis=1), length)
+        diags = np.sqrt(dxd + nxn)
+        diags[diags < sigma] = sigma
+        diags = 1 / diags
+        W_t = np.float32(np.diag(diags))
+        return beta, W_t
+
+    @staticmethod
+    def IRLS_U(Y: np.ndarray, beta: np.ndarray, W: np.ndarray, sigma: float) -> tuple:
+        X = np.float32(Y @ W @ beta.T @ np.linalg.inv(beta @ W @ beta.T))
+        length = len(X)
+        dxd = ElementAIRLSGradient.swallow(np.linalg.norm(X, axis=1), length)
+        nxn = ElementAIRLSGradient.swallow(np.linalg.norm(beta.T, axis=1), length)
+        diags = np.sqrt(dxd + nxn)
+        diags[diags < sigma] = sigma
+        diags = 1 / diags
+        W_t = np.float32(np.diag(diags))
+        return X, W_t
+
+    def gradient(self):
+        W_VT_init = np.float32(np.eye(self.init_U.shape[0]))  # diag d
+        W_U_init = np.float32(np.eye(self.init_V.shape[0]))  # diag n
+        VT_k, W_t_V = ElementAIRLSGradient.IRLS_VT(self.X, self.init_U, W_VT_init, self.opts['sigma'])
+        U_k, W_t_U = ElementAIRLSGradient.IRLS_U(self.X, self.init_V.T, W_U_init, self.opts['sigma'])
+        # print("I am here")
+        self.U_list.append(U_k)
+        self.V_list.append(VT_k.T)
+        for i in range(self.opts['iter_num']):
+            # print(i)
+            VT_k, W_t_V = ElementAIRLSGradient.IRLS_VT(self.X, U_k, W_t_V, self.opts['sigma'])
+            U_k, W_t_U = ElementAIRLSGradient.IRLS_U(self.X, VT_k, W_t_U, self.opts['sigma'])
+            self.U_list.append(U_k)
+            self.V_list.append(VT_k.T)
